@@ -151,6 +151,7 @@ def edit_choice(request, poll_id):
 
         choice_1 = poll.choice_set.filter(id=request.data.get('choice_1_id')).first()
         choice_2 = poll.choice_set.filter(id=request.data.get('choice_2_id')).first()
+        
 
         if not choice_1 or not choice_2:
             return Response({'error': 'One or both choices do not exist.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -161,13 +162,14 @@ def edit_choice(request, poll_id):
         new_choice_2_data = {
             'text': request.data.get('choice_2_text', choice_2.choice_text)
         }
+        
 
-        serializer_1 = ChoiceSerializer(choice_1, data=new_choice_1_data, partial=True)
-        serializer_2 = ChoiceSerializer(choice_2, data=new_choice_2_data, partial=True)
+        serializer_1 = Choice(choice_1.id, choice_text=new_choice_1_data['text'],poll=poll)
+        serializer_2 = Choice(choice_2.id, choice_text=new_choice_2_data['text'],poll=poll)
 
-        if serializer_1.is_valid() and serializer_2.is_valid():
-            serializer_1.save(poll=poll)
-            serializer_2.save(poll=poll)
+        if serializer_1 and serializer_2:
+            serializer_1.save()
+            serializer_2.save()
             return Response({'message': 'Choices updated successfully.'}, status=status.HTTP_200_OK)
         else:
             return Response({'error': 'One or both choices are invalid.'}, status=status.HTTP_400_BAD_REQUEST)
