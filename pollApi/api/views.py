@@ -7,6 +7,7 @@ from .serializers import PollSerializer,ChoiceSerializer,ChoiceListSerializer,Vo
 from rest_framework import status
 # Create your views here.
 
+#Get All routes
 @api_view(['GET'])
 def routes(request):
     data ={
@@ -26,6 +27,7 @@ def routes(request):
                 'poll/editpolls/<int:poll_id>/':"edit existing poll",
                 'poll/deletepolls/<int:poll_id>/':"delete existing poll",
                 'poll/vote/<int:poll_id>/':"cast vote for a poll",
+                'poll/polldetails/<int:poll_id>/': "Poll vote details"
             }
     }
     return Response(data)
@@ -118,27 +120,6 @@ def polls_delete(request, poll_id):
 
 
 
-# #add choices to exsisting poll
-# @api_view(['POST'])
-# @permission_classes([IsAuthenticated])
-# def add_choice(request, poll_id):
-#     try:
-#         poll = Poll.objects.get(pk=poll_id)
-#     except Poll.DoesNotExist:
-#         return Response(status=status.HTTP_404_NOT_FOUND)
-
-#     if request.user != poll.owner:
-#         return Response(status=status.HTTP_403_FORBIDDEN)
-
-    
-#     new_choice1 = Choice.objects.create(poll=poll, choice_text=request.data['choice1'])
-#     new_choice1.save()
-            
-#     new_choice2 = Choice.objects.create(poll=poll, choice_text=request.data['choice2'])
-#     new_choice2.save()
-#     return Response({"message": "Choice added successfully."}, status=status.HTTP_201_CREATED)
-
-
 #editing choices to exsisting poll
 @api_view(['PUT','GET'])
 @permission_classes([IsAuthenticated])
@@ -170,6 +151,8 @@ def edit_choice(request, poll_id):
         if serializer_1 and serializer_2:
             serializer_1.save()
             serializer_2.save()
+            serializer_1.vote_set.all().delete()
+            serializer_1.vote_set.all().delete()
             return Response({'message': 'Choices updated successfully.'}, status=status.HTTP_200_OK)
         else:
             return Response({'error': 'One or both choices are invalid.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -186,54 +169,6 @@ def edit_choice(request, poll_id):
 
         
         
-
-        # choice1 = Choice(instance=choices[0],choice_text=request.data['choice1'])
-        # if choice1.is_valid():
-        #     choice1.save()
-        # else:
-        #     return Response({"not valid"}, status=status.HTTP_400_BAD_REQUEST)
-        # choice2 = Choice(instance=choices[1],choice_text=request.data['choice2'])
-        # if choice2.is_valid():
-        #     choice2.save()
-        # else:
-        #     return Response({"message":"not valid"}, status=status.HTTP_400_BAD_REQUEST)
-        # return Response({'detail': 'Choice updated successfully'}, status=status.HTTP_200_OK)
-    
-            
-    
-
-
-#delete choices to exsisting poll
-# @api_view(['DELETE'])
-# @permission_classes([IsAuthenticated])
-# def delete_choice(request, poll_id):
-#     poll = Poll.objects.get(pk=poll_id)
-#     choices = poll.choice_set.all()
-    
-#     if request.user != poll.owner:
-#         return Response({'detail': 'Unauthorized access'}, status=status.HTTP_403_FORBIDDEN)
-#     for choice in choices:
-#         choice.delete()
-#     return Response({'detail': 'Choice deleted successfully'}, status=status.HTTP_200_OK)
-
-# @api_view(['GET'])
-# @permission_classes([IsAuthenticated])
-# def pollDetails(request, poll_id):
-#     poll = Poll.objects.get(pk=poll_id)
-
-#     if not poll.active:
-#         serializer = PollSerializer(poll)
-#         return Response(serializer.data)
-
-#     loop_count = poll.choice_set.count()
-#     context = {
-#         'poll': poll,
-#         'loop_time': range(0, loop_count),
-    # }
-    # serializer = PollSerializer(poll)
-    # return Response(serializer.data)
-
-
 @api_view(['POST','GET'])
 @permission_classes([IsAuthenticated])
 def poll_vote(request, poll_id):
@@ -245,20 +180,23 @@ def poll_vote(request, poll_id):
 
     if request.method == "POST":
         poll = Poll.objects.get(pk=poll_id)
-        choice_id = request.data.get('choice')
-        if not poll.user_can_vote(request.user):
-            return Response({"message": "You already voted this poll"}, status=status.HTTP_400_BAD_REQUEST)
-        if choice_id:
-            try:
-                choice = Choice.objects.get(id=choice_id)
-                vote = Vote(user=request.user,poll=poll,choice=choice)
-                vote.save()
-                return Response({"message": "Your Vote is Added Succesfully"},status=status.HTTP_201_CREATED)
-            except Choice.DoesNotExist:
-                return Response(status=status.HTTP_404_NOT_FOUND)
+        if poll.active:
+            choice_id = request.data.get('choice')
+            if not poll.user_can_vote(request.user):
+                return Response({"message": "You already voted this poll"}, status=status.HTTP_400_BAD_REQUEST)
+            if choice_id:
+                try:
+                    choice = Choice.objects.get(id=choice_id)
+                    vote = Vote(user=request.user,poll=poll,choice=choice)
+                    vote.save()
+                    return Response({"message": "Your Vote is Added Succesfully"},status=status.HTTP_201_CREATED)
+                except Choice.DoesNotExist:
+                    return Response(status=status.HTTP_404_NOT_FOUND)
 
+            else:
+                return Response({"message": "No choice selected"},status=status.HTTP_400_BAD_REQUEST)
         else:
-            return Response({"message": "No choice selected"},status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": "Poll is not active"},status=status.HTTP_400_BAD_REQUEST)
     else:
         poll_serializer = PollSerializer(poll)
         choiceserializer = ChoiceSerializer(choices,many=True)
@@ -272,3 +210,29 @@ def poll_vote(request, poll_id):
     }
         return Response(data, status=status.HTTP_200_OK)
     
+
+#Poll vote detailes
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def poll_detail(request, poll_id):
+    poll = Poll.objects.get(id=poll_id)
+    choices = poll.choice_set.all()
+
+    choice_text1 = choices[0].choice_text
+    choice_text2 = choices[1].choice_text
+
+    votes_for_1 = choices[0].vote_set.all().count()
+    votes_for_2 = choices[1].vote_set.all().count()
+
+
+    poll_serializer = PollSerializer(poll)
+    choiceserializer = ChoiceSerializer(choices,many=True)
+    data = {
+        'poll': poll_serializer.data,
+        'choices': choiceserializer.data,
+        'votes':{
+                choice_text1:votes_for_1,
+                choice_text2:votes_for_2
+        }
+        }
+    return Response(data, status=status.HTTP_200_OK)

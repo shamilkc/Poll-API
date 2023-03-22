@@ -8,8 +8,7 @@ urlpatterns = [
     path('poll/addpolls/',views.polls_add),
     path('poll/editpolls/<int:poll_id>/',views.polls_edit),
     path('poll/deletepolls/<int:poll_id>/',views.polls_delete),
-    # path('poll/addchoices/<int:poll_id>/',views.add_choice),
     path('poll/editchoices/<int:poll_id>/',views.edit_choice),
-    # path('poll/deletechoices/<int:poll_id>/',views.delete_choice),
     path('poll/vote/<int:poll_id>/',views.poll_vote),
+    path('poll/polldetails/<int:poll_id>/',views.poll_detail),
 ]
